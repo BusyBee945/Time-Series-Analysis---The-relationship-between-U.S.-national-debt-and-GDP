@@ -1,77 +1,75 @@
-# 讀取 Debt_YoY 資料
+# Read Debt_YoY data
 debt_data <- read.csv("C:/Users/User/Desktop/時間序列/Debt_YoY.csv")
 debt_data$observation_date <- as.Date(debt_data$observation_date, format = "%Y-%m-%d")
 
-# 讀取 GDP_YoY 資料
+# Read GDP_YoY data
 gdp_data <- read.csv("C:/Users/User/Desktop/時間序列/GDP_YoY.csv")
 gdp_data$observation_date <- as.Date(gdp_data$observation_date, format = "%Y-%m-%d")
 
-# 合併兩個資料框
+# Merge two data frames
 merged_data <- merge(debt_data, gdp_data, by = "observation_date")
 
-# 檢查資料
+# Check data
 head(merged_data)
 
-# 建立時間序列
-# 建立時間序列
+# Create time series
+# Create time series
 debt_ts <- ts(merged_data$GFDEBTN_PC1, start = c(1967, 1), frequency = 4)
 gdp_ts <- ts(merged_data$GDPC1_PC1, start = c(1967, 1), frequency = 4)
 
-# 對 Debt_YoY 做一階差分
+# First-order difference for Debt_YoY
 debt_diff <- diff(debt_ts)
 
-# 合併差分後的 Debt_YoY 和原始 GDP_YoY
-var_data <- cbind(Debt_YoY = debt_diff, GDP_YoY = gdp_ts[-1])  # 去除第一個差分後對應的 GDP 值
+# Merge differenced Debt_YoY and original GDP_YoY
+var_data <- cbind(Debt_YoY = debt_diff, GDP_YoY = gdp_ts[-1])  # Remove the first GDP value corresponding to the differenced data
 
-# 檢查結果
+# Check results
 head(var_data)
 # install.packages("vars")
 library(vars)
 
-# 選擇最佳滯後階數
+# Select optimal lag order
 lag_selection <- VARselect(var_data, lag.max = 10, type = "const")
 print(lag_selection)
 
-# 建立 VAR 模型
+# Build VAR model
 var_model <- VAR(var_data, p = lag_selection$selection["AIC(n)"], type = "const")
 
-# 查看模型摘要
+# View model summary
 summary(var_model)
-# 殘差診斷
+# Residual diagnostics
 serial.test(var_model, lags.pt = 10, type = "PT.asymptotic")
 
 plot(residuals(var_model))
 
 # ==============================
-# Granger 因果檢定
+# Granger Causality Test
 # ==============================
-# 測試 Debt_YoY 是否 Granger 導致 GDP_YoY
+# Test if Debt_YoY Granger causes GDP_YoY
 granger1 <- causality(var_model, cause = "Debt_YoY")
 print("Debt_YoY Granger Causes GDP_YoY:")
 print(granger1$Granger)
 
-# 測試 GDP_YoY 是否 Granger 導致 Debt_YoY
+# Test if GDP_YoY Granger causes Debt_YoY
 granger2 <- causality(var_model, cause = "GDP_YoY")
 print("GDP_YoY Granger Causes Debt_YoY:")
 print(granger2$Granger)
 
-
-#驗證 VAR 模型的穩定性：
+# Validate VAR model stability:
 stability <- roots(var_model)
 print(stability)
-# 脈衝反應函數 (Impulse Response Function, IRF)
+# Impulse Response Function (IRF)
 irf_result <- irf(var_model, impulse = "Debt_YoY", response = "GDP_YoY", n.ahead = 10)
 plot(irf_result)
 irf_result1 <- irf(var_model, impulse = "GDP_YoY", response = "Debt_YoY", n.ahead = 10)
 plot(irf_result1)
 
-#預測誤差方差分解 (FEVD)：
+# Forecast Error Variance Decomposition (FEVD):
 fevd_result <- fevd(var_model, n.ahead = 10)
 plot(fevd_result)
 
-# 預測
+# Forecast
 forecast <- predict(var_model, n.ahead = 8)
 plot(forecast)
 
 tail(merged_data)
-
